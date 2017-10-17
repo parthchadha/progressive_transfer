@@ -46,7 +46,7 @@ def get_args():
     parser.add_argument('--vis-interval', type=int, default=100,
                         help='vis interval, one log per n updates (default: 100)')
     parser.add_argument('--num-frames', type=int, default=10e6,
-                        help='number of frames to train (default: 10e6)')
+                        help='number of frames to train (default: 40e6)')
     parser.add_argument('--env-name', default='PongNoFrameskip-v4',
                         help='environment to train on (default: PongNoFrameskip-v4)')
     parser.add_argument('--log-dir', default='/tmp/gym/',
@@ -59,7 +59,17 @@ def get_args():
                         help='disables visdom visualization')
     parser.add_argument('--load-dir', default='./trained_models/a2c/',
                     help='directory to save agent logs (default: ./trained_models/)')
-
+    parser.add_argument('--source-env-name', default='SeaquestNoFrameskip-v4',
+                        help='environment to train on (default: SeaquestNoFrameskisp-v4)')
+    parser.add_argument('--backward', default=False, action='store_true',
+                        help='backward connection')
+    parser.add_argument('--left_right', default=False, action='store_true',
+                        help='left right')
+    parser.add_argument('--up_down', default=False, action='store_true',
+                        help='up down')
+    parser.add_argument('--noise', default=False, action='store_true',
+                        help='noise')
+    
     args = parser.parse_args()
 
     args.cuda = not args.no_cuda and torch.cuda.is_available()

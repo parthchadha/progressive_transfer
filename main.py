@@ -18,6 +18,7 @@ from kfac import KFACOptimizer
 from model import CNNPolicy, MLPPolicy
 from storage import RolloutStorage
 from visualize import visdom_plot
+import matplotlib.pyplot as plt
 
 args = get_args()
 
@@ -114,6 +115,25 @@ def main():
 
             # Obser reward and next state
             state, reward, done, info = envs.step(cpu_actions)
+            
+            if args.left_right:
+                state = copy.deepcopy(state[:,:,:,::-1])
+            elif args.up_down:
+                state = copy.deepcopy(state[:,:,::-1,:])
+
+            # print(state[2,:].shape)
+            # plt.imshow(np.squeeze(state[2,:]))
+            # plt.savefig('myfig.png')
+            
+            # state_lr = state[:,:,:,::-1]
+            # plt.imshow(np.squeeze(state_lr[2,:]))
+            # plt.savefig('myfiglr.png')
+            
+            # state_ud = state[:,:,::-1,:]
+            # plt.imshow(np.squeeze(state_ud[2,:]))
+            # plt.savefig('myfigud.png')
+            
+
             reward = torch.from_numpy(np.expand_dims(np.stack(reward), 1)).float()
             episode_rewards += reward
 
@@ -223,8 +243,16 @@ def main():
             # A really ugly way to save a model to CPU
             save_model = actor_critic
             if args.cuda:
-                save_model = copy.deepcopy(actor_critic).cpu()
-            torch.save(save_model, os.path.join(save_path, args.env_name + ".pt"))
+                save_model = actor_critic #copy.deepcopy(actor_critic).cpu()
+
+            save_name = args.env_name
+            if args.left_right:
+                print("added")
+                save_name += '_left_right'
+            elif args.up_down:
+                save_name += '_up_down'
+
+            torch.save(save_model, os.path.join(save_path, save_name + ".pt"))
 
         if j % args.log_interval == 0:
             print("Updates {}, num frames {}, mean/median reward {:.1f}/{:.1f}, min/max reward {:.1f}/{:.1f}, entropy {:.5f}, value loss {:.5f}, policy loss {:.5f}".

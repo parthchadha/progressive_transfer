@@ -7,7 +7,8 @@ from torch.autograd import Variable
 from running_stat import ObsNorm
 from distributions import Categorical, DiagGaussian
 from utils import AddBias
-
+import random
+import numpy as np
 
 def weights_init(m):
     classname = m.__class__.__name__
@@ -35,14 +36,23 @@ class FFPolicy(nn.Module):
         return value, action_log_probs, dist_entropy
 
 class ProgressivePolicy(FFPolicy):
-    def __init__(self, num_inputs, action_space, previous_column):
+    def __init__(self, num_inputs, action_space, previous_column, backward):
         super(ProgressivePolicy, self).__init__()
+        
+        print("Do you want backward connection: ", backward)
         self.previous_column = previous_column
         self.conv1 = nn.Conv2d(num_inputs, 32, 8, stride=4, bias=False)
 
-        self.alpha1 = nn.Parameter(torch.rand(1))
-        self.alpha2 = nn.Parameter(torch.rand(1))
-        self.alpha3 = nn.Parameter(torch.rand(1))
+        alpha_list = [1, 0.1, 0.01]
+        self.alpha1 = nn.Parameter(torch.from_numpy(np.array([random.choice(alpha_list)])).float())
+        print(self.alpha1)
+        self.alpha2 = nn.Parameter(torch.from_numpy(np.array([random.choice(alpha_list)])).float())
+        print(self.alpha2)
+        self.alpha3 = nn.Parameter(torch.from_numpy(np.array([random.choice(alpha_list)])).float())
+        print(self.alpha2)
+
+        if backward:
+            self.alpha4 = nn.Parameter(torch.from_numpy(np.array([random.choice(alpha_list)])).float())
 
         #self.V1 = nn.Conv2d(32, 16, 1, stride=1, bias=True)
         self.U1 = nn.Conv2d(32, 32, 3, padding=1, stride=1, bias=True)
@@ -91,36 +101,37 @@ class ProgressivePolicy(FFPolicy):
         a1 = self.previous_column.layer1 * self.alpha1
         v1 = self.U1(a1)
         v1 = F.relu(v1)
-
         x = self.conv1(inputs/255.0)
         x = self.ab1(x)
-        x = F.relu(x)
+        x = F.relu(x + v1)
 
-        x = self.conv2(x + v1)
+        x = self.conv2(x)
         x = self.ab2(x)
-        x = F.relu(x)
         
         a2 = self.previous_column.layer2 * self.alpha2
         v2 = self.U2(a2)
         v2 = F.relu(v2)
 
-        x = self.conv3(x + v2)
+        x = F.relu(x + v2)
+
+        x = self.conv3(x)
         x = self.ab3(x)
-        x = F.relu(x)
 
         a3 = self.previous_column.layer3 * self.alpha3
         a3 = self.V3(a3)
         a3 = F.relu(a3)
         a3 = a3.view(-1, 8 * 7 * 7)
         a3 = self.U3(a3)
+        
+        #x = F.relu(x)
 
 
         x = x.view(-1, 32 * 7 * 7)
-        x = self.linear1(x + a3)
+        x = F.relu(x + a3)
+        x = self.linear1(x)
         x = self.ab_fc1(x)
         x = F.relu(x)
-
-        self.layer4 = x
+        print(self.alpha1, self.alpha2, self.alpha3)
 
         return self.ab_fc2(self.critic_linear(x)), x
 

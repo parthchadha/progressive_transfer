@@ -55,23 +55,24 @@ def main():
         make_env(args.env_name, args.seed, i, args.log_dir)
         for i in range(args.num_processes)
     ])
-
+    print("Env name: ", args.env_name)
     obs_shape = envs.observation_space.shape
     print("actual obs shape: ", obs_shape) # (1, 84, 84)
     obs_shape = (obs_shape[0] * args.num_stack, *obs_shape[1:])
     print("modified obs shape: ", obs_shape) #(4, 84, 84)
 
-    prev_column = torch.load(os.path.join(args.load_dir, args.env_name + ".pt"))
+    prev_column = torch.load(os.path.join(args.load_dir, args.source_env_name + ".pt"))
     prev_column.eval()
 
     if envs.action_space.__class__.__name__ == 'Discrete':
-        actor_critic = ProgressivePolicy(obs_shape[0], envs.action_space, prev_column)
+        actor_critic = ProgressivePolicy(obs_shape[0], envs.action_space, prev_column, args.backward)
         action_shape = 1
     else:
         actor_critic = MLPPolicy(obs_shape[0], envs.action_space)
         action_shape = envs.action_space.shape[0]
 
     if args.cuda:
+        prev_column.cuda()
         actor_critic.cuda()
 
     #print(list(actor_critic.parameters()))
@@ -117,6 +118,12 @@ def main():
 
             # Obser reward and next state
             state, reward, done, info = envs.step(cpu_actions)
+            
+            if args.left_right:
+                state = copy.deepcopy(state[:,:,:,::-1])
+            elif args.up_down:
+                state = copy.deepcopy(state[:,:,::-1,:])
+
             reward = torch.from_numpy(np.expand_dims(np.stack(reward), 1)).float()
             episode_rewards += reward
 
@@ -223,10 +230,19 @@ def main():
                 pass
 
             # A really ugly way to save a model to CPU
-            # save_model = actor_critic
-            # if args.cuda:
-            #     save_model = copy.deepcopy(actor_critic).cpu()
-            # torch.save(save_model, os.path.join(save_path, args.env_name + ".pt"))
+            save_model = actor_critic
+            if args.cuda:
+                save_model = actor_critic #copy.deepcopy(actor_critic).cpu()
+            
+
+            save_name = args.env_name + '_' + args.source_env_name
+            if args.left_right:
+                print("added")
+                save_name += '_left_right'
+            elif args.up_down:
+                save_name += '_up_down'
+
+            torch.save(save_model, os.path.join(save_path,  save_name + ".pt"))
 
         if j % args.log_interval == 0:
             print("Updates {}, num frames {}, mean/median reward {:.1f}/{:.1f}, min/max reward {:.1f}/{:.1f}, entropy {:.5f}, value loss {:.5f}, policy loss {:.5f}".

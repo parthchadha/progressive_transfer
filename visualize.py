@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.signal import medfilt
 matplotlib.rcParams.update({'font.size': 8})
-
+import argparse
 
 def smooth_reward_curve(x, y):
     # Halfwidth of our smoothing convolution
@@ -56,6 +56,7 @@ def load_data(indir, smooth, bin_size):
 
     for inf in infiles:
         with open(inf, 'r') as f:
+            print(inf)
             t_start = float(json.loads(f.readline())['t_start'])
             for line in f:
                 tmp = json.loads(line)
@@ -136,6 +137,13 @@ def visdom_plot(viz, win, folder, game, name, bin_size=100, smooth=1):
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='RL')
+    parser.add_argument('--model', default='Breakout',help='model name')
+    parser.add_argument('--env_name', default='BoxingNoFrameskip-v4',help='env name')
+    parser.add_argument('--port', default='8097',help='port number')
+    
+    args = parser.parse_args()
     from visdom import Visdom
-    viz = Visdom()
-    visdom_plot(viz, None, '/tmp/gym/', 'BreakOut', 'a2c', bin_size=100, smooth=1)
+    print(args.port)
+    viz = Visdom(port=args.port)
+    visdom_plot(viz, None, 'gpu_logs/logs/'+ args.model +'/', args.env_name,'a2c', bin_size=100, smooth=1)
